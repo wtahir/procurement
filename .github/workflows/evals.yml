@@ -1,0 +1,10 @@
+name: Evals
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Promptfoo wiring lands here once eval infra is connected."
