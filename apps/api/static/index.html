@@ -139,6 +139,103 @@
       .timeline .ev { display: flex; gap: 10px; font-size: 13px; padding: 5px 0; color: var(--muted); }
       .timeline .ev b { color: var(--text); }
       .placeholder { display: grid; place-items: center; min-height: 320px; text-align: center; color: var(--muted); }
+
+      /* ── Explainer hero ─────────────────────────────────────── */
+      .hero {
+        max-width: 1320px;
+        margin: 24px auto 0;
+        padding: 0 32px;
+      }
+      .hero-inner {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 30px 32px 26px;
+        background:
+          radial-gradient(900px 380px at 100% 0%, rgba(11, 107, 203, 0.1), transparent 60%),
+          radial-gradient(700px 320px at 0% 100%, rgba(21, 160, 151, 0.1), transparent 60%),
+          linear-gradient(180deg, var(--surface), var(--surface-2));
+        box-shadow: var(--shadow);
+      }
+      .hero .eyebrow {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+        color: var(--brand); background: rgba(11, 107, 203, 0.1);
+        border: 1px solid rgba(11, 107, 203, 0.22);
+        padding: 5px 11px; border-radius: 999px;
+      }
+      .hero h2.title {
+        font-size: clamp(22px, 3vw, 30px);
+        line-height: 1.18; margin: 14px 0 8px; letter-spacing: -0.4px; border: 0; padding: 0;
+      }
+      .hero p.lead { margin: 0; max-width: 760px; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+      .hero p.lead b { color: var(--text); font-weight: 600; }
+
+      /* Animated pipeline */
+      .pipe { margin-top: 24px; }
+      .pipe-track {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        position: relative;
+      }
+      @media (max-width: 860px) { .pipe-track { grid-template-columns: 1fr 1fr; } }
+      .pstep {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px 14px 15px;
+        background: #ffffff;
+        opacity: 0.55;
+        transform: translateY(0);
+        transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        animation: stepPulse 10s infinite;
+      }
+      .pstep .ico {
+        width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+        font-size: 17px; margin-bottom: 10px;
+        background: linear-gradient(135deg, rgba(11,107,203,0.14), rgba(21,160,151,0.14));
+        border: 1px solid var(--border);
+      }
+      .pstep .k { font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
+      .pstep .t { font-size: 14.5px; font-weight: 700; margin: 3px 0 5px; }
+      .pstep .d { font-size: 12px; color: var(--muted); line-height: 1.45; }
+      .pstep .num {
+        position: absolute; top: 12px; right: 12px;
+        width: 20px; height: 20px; border-radius: 50%;
+        font-size: 11px; font-weight: 700; display: grid; place-items: center;
+        color: var(--muted); border: 1px solid var(--border); background: var(--surface-2);
+      }
+      .pstep:nth-child(1) { animation-delay: 0s; }
+      .pstep:nth-child(2) { animation-delay: 2s; }
+      .pstep:nth-child(3) { animation-delay: 4s; }
+      .pstep:nth-child(4) { animation-delay: 6s; }
+      .pstep:nth-child(5) { animation-delay: 8s; }
+      @keyframes stepPulse {
+        0%, 14% {
+          opacity: 1; transform: translateY(-4px);
+          border-color: var(--brand);
+          box-shadow: 0 14px 26px -18px rgba(11, 107, 203, 0.7);
+        }
+        24%, 100% {
+          opacity: 0.55; transform: translateY(0);
+          border-color: var(--border); box-shadow: none;
+        }
+      }
+      .pstep:nth-child(1) .num { color: var(--brand); border-color: var(--brand); }
+      .pipe-legend {
+        display: flex; flex-wrap: wrap; gap: 14px 22px; margin-top: 18px;
+        font-size: 12.5px; color: var(--muted);
+      }
+      .pipe-legend span { display: inline-flex; align-items: center; gap: 7px; }
+      .pipe-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+      .lg-auto { background: var(--good); }
+      .lg-human { background: var(--warn); }
+      .lg-data { background: var(--brand); }
+      @media (prefers-reduced-motion: reduce) {
+        .pstep { animation: none; opacity: 1; }
+      }
     </style>
   </head>
   <body>
@@ -152,6 +249,67 @@
       </div>
       <span class="pill"><span id="status-dot" class="dot"></span><span id="status-text">connecting…</span></span>
     </header>
+
+    <section class="hero">
+      <div class="hero-inner">
+        <span class="eyebrow">Live demo · agentic procurement</span>
+        <h2 class="title">From a plain-English material request to an approved purchase — automatically.</h2>
+        <p class="lead">
+          Procura is an <b>AI-style procurement orchestrator</b>. You describe what a construction
+          site needs in everyday language, and the system runs a five-stage workflow:
+          it <b>understands the request</b>, <b>sources suppliers</b> across different systems,
+          <b>compares competing bids</b>, pauses for a <b>human approval</b> on high-value orders,
+          and then <b>tracks fulfilment</b> — keeping a full audit trail at every step.
+          Try it below: fill the form and press <b>Run procurement pipeline</b>.
+        </p>
+
+        <div class="pipe">
+          <div class="pipe-track">
+            <div class="pstep">
+              <span class="num">1</span>
+              <div class="ico">📝</div>
+              <div class="k">Intake</div>
+              <div class="t">Understand the need</div>
+              <div class="d">Parses material, quantity, region &amp; checks budget and feasibility.</div>
+            </div>
+            <div class="pstep">
+              <span class="num">2</span>
+              <div class="ico">🔌</div>
+              <div class="k">Sourcing</div>
+              <div class="t">Find suppliers</div>
+              <div class="d">Reaches suppliers over REST, SOAP, EDI, SFTP, GraphQL &amp; mainframe.</div>
+            </div>
+            <div class="pstep">
+              <span class="num">3</span>
+              <div class="ico">⚖️</div>
+              <div class="k">Decision</div>
+              <div class="t">Compare bids</div>
+              <div class="d">Ranks quotes by landed cost, lead time &amp; supplier reliability.</div>
+            </div>
+            <div class="pstep">
+              <span class="num">4</span>
+              <div class="ico">✅</div>
+              <div class="k">Approval</div>
+              <div class="t">Human in the loop</div>
+              <div class="d">High-value orders wait for an explicit approve / reject decision.</div>
+            </div>
+            <div class="pstep">
+              <span class="num">5</span>
+              <div class="ico">🚚</div>
+              <div class="k">Fulfilment</div>
+              <div class="t">Track delivery</div>
+              <div class="d">Confirms the award and follows the order through to completion.</div>
+            </div>
+          </div>
+          <div class="pipe-legend">
+            <span><i class="lg-data"></i> Automated reasoning step</span>
+            <span><i class="lg-human"></i> Human approval gate</span>
+            <span><i class="lg-auto"></i> Completed &amp; auditable</span>
+            <span>Deterministic demo — no API keys required</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <main>
       <section class="left">
