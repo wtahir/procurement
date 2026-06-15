@@ -1,9 +1,9 @@
 from packages.core.models.order import ProcurementOrder
+from packages.tools.pricing_tools import rank_quotes_by_total
 
 
 def choose_lowest_bid(order: ProcurementOrder) -> ProcurementOrder:
-    quotes = sorted(order.bidding.quotes_received, key=lambda quote: quote.total)
+    quotes = rank_quotes_by_total(order.bidding.quotes_received)
     if quotes:
-        winner = quotes[0]
-        order.bidding.recommended_bid = winner.model_dump()
+        order.bidding.recommended_bid = quotes[0].model_dump()
     return order

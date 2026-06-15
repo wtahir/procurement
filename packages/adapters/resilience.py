@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
-
-T = TypeVar("T")
 
 
-async def with_retries(
+async def with_retries[T](
     operation: Callable[[], Awaitable[T]],
     *,
     retries: int = 3,
