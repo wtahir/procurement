@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: procura-api
+    name: procura
     runtime: python
     plan: free
     region: frankfurt
