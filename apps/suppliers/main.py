@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from apps.suppliers.rest_alrajhi.app import router as alrajhi_router
+from apps.suppliers.rest_metrosteel.app import router as rest_supplier_router
 
 
 def create_app() -> FastAPI:
@@ -10,7 +10,7 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    app.include_router(alrajhi_router, prefix="/rest/alrajhi", tags=["alrajhi"])
+    app.include_router(rest_supplier_router, prefix="/rest/metrosteel", tags=["metrosteel"])
     return app
 
 

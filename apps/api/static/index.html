@@ -147,7 +147,7 @@
         <div class="logo">P</div>
         <div>
           <h1>Procura</h1>
-          <p>Agentic Procurement OS · AridOS-inspired demo</p>
+          <p>Agentic Procurement OS · deterministic demo</p>
         </div>
       </div>
       <span class="pill"><span id="status-dot" class="dot"></span><span id="status-text">connecting…</span></span>
@@ -160,7 +160,7 @@
           <div class="body">
             <div class="field">
               <label for="raw">Describe what you need</label>
-              <textarea id="raw" rows="2">Need 500 tons of rebar steel for the Riyadh tower foundation by next month.</textarea>
+              <textarea id="raw" rows="2">Need 500 tons of rebar steel for a Sydney CBD tower foundation by next month.</textarea>
             </div>
             <div class="row">
               <div class="field">
@@ -175,9 +175,9 @@
               <div class="field">
                 <label for="region">Region</label>
                 <select id="region">
-                  <option value="riyadh">Riyadh</option>
-                  <option value="jeddah">Jeddah</option>
-                  <option value="dammam">Dammam</option>
+                  <option value="sydney">Sydney</option>
+                  <option value="melbourne">Melbourne</option>
+                  <option value="brisbane">Brisbane</option>
                 </select>
               </div>
             </div>
@@ -212,7 +212,7 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
-      const money = (n) => n == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "SAR", maximumFractionDigits: 0 }).format(n);
+      const money = (n) => n == null ? "—" : new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 }).format(n);
       const cap = (s) => (s || "").replace(/_/g, " ");
       let activeId = null;
 

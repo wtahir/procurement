@@ -13,7 +13,7 @@ class CreateOrderRequest(BaseModel):
     raw_input: str = Field(min_length=1)
     material_code: str = "rebar_steel"
     quantity: float = Field(default=500, gt=0)
-    region: str = "riyadh"
+    region: str = "sydney"
 
 
 @router.post("")

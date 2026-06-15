@@ -16,10 +16,10 @@ def test_pipeline_creates_order_with_recommendation() -> None:
     response = client.post(
         "/orders",
         json={
-            "raw_input": "Need 500 tons of rebar steel in Riyadh.",
+            "raw_input": "Need 500 tons of rebar steel in Sydney.",
             "material_code": "rebar_steel",
             "quantity": 500,
-            "region": "riyadh",
+            "region": "sydney",
         },
     )
 
@@ -40,7 +40,7 @@ def test_small_order_auto_approves() -> None:
             "raw_input": "10 cement bags",
             "material_code": "cement_bag",
             "quantity": 10,
-            "region": "riyadh",
+            "region": "sydney",
         },
     ).json()
 
@@ -54,10 +54,10 @@ def test_approval_transitions_order() -> None:
     order = client.post(
         "/orders",
         json={
-            "raw_input": "Need 800 tons of rebar steel in Jeddah.",
+            "raw_input": "Need 800 tons of rebar steel in Melbourne.",
             "material_code": "rebar_steel",
             "quantity": 800,
-            "region": "jeddah",
+            "region": "melbourne",
         },
     ).json()
     order_id = order["identity"]["order_id"]

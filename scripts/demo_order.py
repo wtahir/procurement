@@ -4,7 +4,7 @@ from packages.core.models.order import OrderIdentity, ProcurementOrder, RequestP
 def main() -> None:
     order = ProcurementOrder(
         identity=OrderIdentity(tenant_id="demo"),
-        request=RequestPayload(raw_input="Need 500 tons of rebar in Riyadh"),
+        request=RequestPayload(raw_input="Need 500 tons of rebar in Sydney"),
     )
     print(order.model_dump(mode="json"))
 

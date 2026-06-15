@@ -3,4 +3,4 @@ prompts:
   - packages/agents/prompts/site_request.md
 tests:
   - vars:
-      raw_input: I need 500 tons of rebar steel in Riyadh
+  raw_input: I need 500 tons of rebar steel in Sydney

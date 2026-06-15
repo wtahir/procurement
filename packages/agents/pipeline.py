@@ -33,15 +33,15 @@ from packages.core.models.order import (
 )
 from packages.core.models.supplier import SupplierDescriptor
 
-# Base unit prices (SAR) used by the deterministic quote generator.
+# Base unit prices (AUD) used by the deterministic quote generator.
 _BASE_PRICES: dict[str, dict[str, float]] = {
-    "rebar_steel": {"riyadh": 2800.0, "jeddah": 2950.0, "dammam": 2870.0},
-    "cement_bag": {"riyadh": 18.0, "jeddah": 19.5, "dammam": 18.4},
-    "ready_mix_concrete": {"riyadh": 240.0, "jeddah": 255.0, "dammam": 248.0},
-    "ceramic_tile": {"riyadh": 65.0, "jeddah": 70.0, "dammam": 67.0},
+    "rebar_steel": {"sydney": 2800.0, "melbourne": 2950.0, "brisbane": 2870.0},
+    "cement_bag": {"sydney": 18.0, "melbourne": 19.5, "brisbane": 18.4},
+    "ready_mix_concrete": {"sydney": 240.0, "melbourne": 255.0, "brisbane": 248.0},
+    "ceramic_tile": {"sydney": 65.0, "melbourne": 70.0, "brisbane": 67.0},
 }
 
-_DEFAULT_REGION = "riyadh"
+_DEFAULT_REGION = "sydney"
 
 
 @dataclass(frozen=True)
@@ -54,8 +54,8 @@ class _MockSupplier:
 DEMO_SUPPLIERS: list[_MockSupplier] = [
     _MockSupplier(
         SupplierDescriptor(
-            supplier_id="al_rajhi_steel",
-            name="Al-Rajhi Steel",
+            supplier_id="harbour_steelworks",
+            name="Harbour Steelworks",
             channel=SupplierChannel.REST,
             min_order=10,
             reliability_score=0.96,
@@ -65,8 +65,8 @@ DEMO_SUPPLIERS: list[_MockSupplier] = [
     ),
     _MockSupplier(
         SupplierDescriptor(
-            supplier_id="gulf_cement",
-            name="Gulf Cement Co.",
+            supplier_id="southern_cementworks",
+            name="Southern Cementworks",
             channel=SupplierChannel.SOAP,
             min_order=50,
             reliability_score=0.91,
@@ -76,8 +76,8 @@ DEMO_SUPPLIERS: list[_MockSupplier] = [
     ),
     _MockSupplier(
         SupplierDescriptor(
-            supplier_id="rawabi_supply",
-            name="Rawabi Supply",
+            supplier_id="coastal_supply",
+            name="Coastal Supply",
             channel=SupplierChannel.GRAPHQL,
             min_order=20,
             reliability_score=0.88,
@@ -87,8 +87,8 @@ DEMO_SUPPLIERS: list[_MockSupplier] = [
     ),
     _MockSupplier(
         SupplierDescriptor(
-            supplier_id="al_masar",
-            name="Al-Masar Trading",
+            supplier_id="outback_trade",
+            name="Outback Trade",
             channel=SupplierChannel.SFTP_BATCH,
             min_order=30,
             reliability_score=0.84,
@@ -98,8 +98,8 @@ DEMO_SUPPLIERS: list[_MockSupplier] = [
     ),
     _MockSupplier(
         SupplierDescriptor(
-            supplier_id="saudi_ceramic",
-            name="Saudi Ceramic",
+            supplier_id="metro_ceramics",
+            name="Metro Ceramics",
             channel=SupplierChannel.EDI_WEBHOOK,
             min_order=40,
             reliability_score=0.9,
@@ -109,8 +109,8 @@ DEMO_SUPPLIERS: list[_MockSupplier] = [
     ),
     _MockSupplier(
         SupplierDescriptor(
-            supplier_id="al_mona",
-            name="Al-Mona Industrial",
+            supplier_id="summit_industrial",
+            name="Summit Industrial",
             channel=SupplierChannel.MAINFRAME,
             min_order=25,
             reliability_score=0.82,

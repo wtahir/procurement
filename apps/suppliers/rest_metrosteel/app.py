@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi import APIRouter
 
 from apps.suppliers.common.pricing import quote_price
-from apps.suppliers.rest_alrajhi.schema import RFQRequest, RFQResponse
+from apps.suppliers.rest_metrosteel.schema import RFQRequest, RFQResponse
 
 router = APIRouter()
 
@@ -11,9 +11,9 @@ router = APIRouter()
 @router.get("/catalog")
 async def get_catalog() -> dict[str, object]:
     return {
-        "supplier_id": "al_rajhi_steel",
+        "supplier_id": "harbour_steelworks",
         "materials": ["rebar_steel", "cement_bag"],
-        "regions": ["riyadh", "jeddah", "dammam"],
+        "regions": ["sydney", "melbourne", "brisbane"],
     }
 
 
@@ -23,7 +23,7 @@ async def create_rfq(payload: RFQRequest) -> RFQResponse:
     total = round(unit_price * payload.quantity, 2)
     return RFQResponse(
         quote_id=str(uuid4()),
-        supplier_id="al_rajhi_steel",
+        supplier_id="harbour_steelworks",
         unit_price=unit_price,
         total=total,
         lead_time_days=2,

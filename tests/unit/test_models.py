@@ -7,7 +7,7 @@ def test_procurement_order_builds_thread_id_from_identity() -> None:
     order = ProcurementOrder(
         identity=OrderIdentity(tenant_id="watad-demo"),
         request=RequestPayload(
-            raw_input="Need 500 tons of rebar in Riyadh",
+            raw_input="Need 500 tons of rebar in Sydney",
             input_modality=InputModality.TEXT,
             locale=Locale.EN,
         ),
@@ -20,7 +20,7 @@ def test_procurement_order_builds_thread_id_from_identity() -> None:
 def test_append_audit_entry_is_append_only() -> None:
     order = ProcurementOrder(
         identity=OrderIdentity(),
-        request=RequestPayload(raw_input="Need 100 pipes in Jeddah"),
+        request=RequestPayload(raw_input="Need 100 pipes in Melbourne"),
     )
 
     append_audit_entry(order, agent="site_request", action="parsed", reason="structured input")
