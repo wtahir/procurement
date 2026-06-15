@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from apps.api.errors import register_error_handlers
 from apps.api.routes.approvals import router as approvals_router
@@ -8,6 +11,8 @@ from apps.api.routes.stream import router as stream_router
 from apps.api.routes.voice import router as voice_router
 from apps.api.routes.webhooks import router as webhooks_router
 from apps.api.settings import get_settings
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 def create_app() -> FastAPI:
@@ -20,6 +25,7 @@ def create_app() -> FastAPI:
     app.include_router(voice_router, prefix="/voice", tags=["voice"])
     app.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
     app.include_router(stream_router, prefix="/stream", tags=["stream"])
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="dashboard")
     return app
 
 

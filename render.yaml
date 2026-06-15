@@ -1,6 +1,15 @@
 services:
   - type: web
     name: procura-api
-    env: python
-    buildCommand: pip install -e .
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install --upgrade pip && pip install -e .
     startCommand: uvicorn apps.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health/live
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: APP_ENV
+        value: production
