@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     region: frankfurt
-    buildCommand: pip install --upgrade pip && pip install -e .
+    buildCommand: chmod +x render_build.sh && ./render_build.sh
     startCommand: uvicorn apps.api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health/live
     autoDeploy: true
