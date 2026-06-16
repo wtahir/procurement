@@ -7,7 +7,7 @@ def test_rest_supplier_returns_quote() -> None:
     client = TestClient(app)
 
     response = client.post(
-        "/rest/metrosteel/rfq",
+        "/rest/harboursteelworks/rfq",
         json={
             "order_id": "ord-1",
             "material_code": "rebar_steel",

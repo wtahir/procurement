@@ -1,8 +1,17 @@
-"""Deterministic demo orchestration.
+"""Staged procurement orchestration (demo + LLM modes).
 
-Composes the per-stage agent node functions into a single runnable pipeline so
-the API and dashboard have real data to show. It is intentionally LLM-free so it
-runs on a clean deployment without any external credentials.
+Composes the per-stage agent node functions into runnable pipelines so the API
+and dashboard always have real data to show.
+
+Two entrypoints share the same deterministic core (pricing, ranking, budget,
+approval routing):
+
+- ``run_demo_pipeline`` — LLM-free; runs on a clean deployment with no
+  credentials and no extra dependencies (used on Render and in tests).
+- ``run_llm_pipeline``  — same workflow, but request parsing and explanatory
+  prose come from a real model (Azure OpenAI or a local Llama server).
+
+``run_pipeline`` is the mode-aware dispatcher selected by ``LLM_MODE``.
 """
 
 from __future__ import annotations
@@ -15,6 +24,12 @@ from packages.agents.decide.bid_comparison import rank_bids
 from packages.agents.decide.contracts import draft_contract
 from packages.agents.fulfill.tracking import summarize_status
 from packages.agents.intake.feasibility import seed_feasibility
+from packages.agents.llm_nodes import (
+    assess_feasibility,
+    explain_recommendation,
+    parse_site_request,
+    write_contract_cover,
+)
 from packages.agents.source.rfq_manager import queue_rfqs
 from packages.agents.source.vendor_sourcing import shortlist_suppliers
 from packages.core.enums import (
@@ -32,6 +47,8 @@ from packages.core.models.order import (
     utc_now,
 )
 from packages.core.models.supplier import SupplierDescriptor
+from packages.llm.client import LLMClient, get_llm_client
+from packages.llm.config import get_llm_settings
 
 # Base unit prices (AUD) used by the deterministic quote generator.
 _BASE_PRICES: dict[str, dict[str, float]] = {
@@ -129,10 +146,42 @@ def _unit_price(material_code: str, region: str, markup: float) -> float:
     return round(base * markup, 2)
 
 
+def _as_float(value: object) -> float:
+    if isinstance(value, bool):
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
 def _audit(order: ProcurementOrder, agent: str, action: str, reason: str | None = None) -> None:
     order.audit_log.append(AuditEntry(agent=agent, action=action, reason=reason))
     if agent not in order.pipeline_control.completed_agents:
         order.pipeline_control.completed_agents.append(agent)
+
+
+def _collect_quotes(
+    order: ProcurementOrder, material_code: str, region: str, quantity: float
+) -> None:
+    for supplier in DEMO_SUPPLIERS:
+        unit_price = _unit_price(material_code, region, supplier.markup)
+        total = round(unit_price * quantity, 2)
+        order.bidding.quotes_received.append(
+            QuoteRecord(
+                supplier_id=supplier.descriptor.supplier_id,
+                unit_price=unit_price,
+                total=total,
+                lead_time_days=supplier.lead_time_days,
+                terms="Net 30",
+                reliability_score=supplier.descriptor.reliability_score,
+                raw_ref=f"quote::{supplier.descriptor.supplier_id}",
+            )
+        )
 
 
 def run_demo_pipeline(
@@ -176,20 +225,7 @@ def run_demo_pipeline(
     _audit(order, "rfq_manager", "Dispatched RFQs across supplier channels")
 
     # Collect deterministic quotes.
-    for supplier in DEMO_SUPPLIERS:
-        unit_price = _unit_price(material_code, region, supplier.markup)
-        total = round(unit_price * quantity, 2)
-        order.bidding.quotes_received.append(
-            QuoteRecord(
-                supplier_id=supplier.descriptor.supplier_id,
-                unit_price=unit_price,
-                total=total,
-                lead_time_days=supplier.lead_time_days,
-                terms="Net 30",
-                reliability_score=supplier.descriptor.reliability_score,
-                raw_ref=f"quote::{supplier.descriptor.supplier_id}",
-            )
-        )
+    _collect_quotes(order, material_code, region, quantity)
 
     # Stage 3 — decide.
     rank_bids(order)
@@ -198,10 +234,16 @@ def run_demo_pipeline(
     _audit(order, "bid_comparison", "Ranked quotes by landed total")
     _audit(order, "awarding", "Recommended lowest compliant bid")
     order.intake.budget_remaining = round(
-        _PROJECT_BUDGET - float(order.bidding.recommended_bid.get("total", 0.0)), 2
+        _PROJECT_BUDGET - _as_float(order.bidding.recommended_bid.get("total", 0.0)), 2
     )
 
     # Stage 4 — approval gate.
+    _finalize_approval(order)
+
+    return order
+
+
+def _finalize_approval(order: ProcurementOrder) -> None:
     route_for_approval(order)
     if order.approval.required_level == ApprovalLevel.AUTO:
         order.approval.status = ApprovalStatus.APPROVED
@@ -218,8 +260,6 @@ def run_demo_pipeline(
             f"Routed for {order.approval.required_level.value} approval",
         )
 
-    return order
-
 
 def order_summary(order: ProcurementOrder) -> dict[str, object]:
     recommended = order.bidding.recommended_bid
@@ -234,3 +274,128 @@ def order_summary(order: ProcurementOrder) -> dict[str, object]:
         "recommended_total": recommended.get("total"),
         "created_at": order.identity.created_at.isoformat(),
     }
+
+
+def run_llm_pipeline(
+    *,
+    llm: LLMClient,
+    raw_input: str,
+    material_code: str,
+    quantity: float,
+    region: str,
+    tenant_id: str = "demo",
+) -> ProcurementOrder:
+    """Same staged workflow as the demo, but with real LLM reasoning at the edges.
+
+    Deterministic math (pricing, ranking, budget, approval routing) is identical
+    to the demo path; only parsing and explanatory prose come from the model.
+    """
+
+    region = region or _DEFAULT_REGION
+
+    # Stage 1 — intake (LLM parses the free-form request).
+    parsed = parse_site_request(
+        llm,
+        raw_input=raw_input,
+        fallback_material=material_code,
+        fallback_quantity=quantity,
+        fallback_region=region,
+    )
+    material_code = parsed.material_code
+    quantity = parsed.quantity
+    region = parsed.region
+
+    order = ProcurementOrder(
+        identity=OrderIdentity(tenant_id=tenant_id),
+        request=RequestPayload(
+            raw_input=raw_input,
+            material_code=material_code,
+            quantity=quantity,
+            unit=parsed.unit,
+            region=region,
+            parse_confidence=parsed.confidence,
+        ),
+    )
+    _audit(order, "site_request", "Parsed structured request via LLM")
+
+    seed_feasibility(order)
+    feasibility = assess_feasibility(llm, order)
+    order.intake.feasibility_score = feasibility.score
+    order.intake.feasibility_notes = feasibility.notes
+    order.intake.budget_ok = True
+    order.intake.schedule_ok = True
+    _audit(order, "feasibility", "Assessed feasibility via LLM")
+
+    # Stage 2 — sourcing (deterministic).
+    descriptors = [supplier.descriptor for supplier in DEMO_SUPPLIERS]
+    shortlist_suppliers(order, descriptors)
+    queue_rfqs(order, descriptors)
+    order.sourcing.sourcing_rationale = (
+        f"Shortlisted {len(descriptors)} suppliers across heterogeneous channels."
+    )
+    _audit(order, "vendor_sourcing", f"Shortlisted {len(descriptors)} suppliers")
+    _audit(order, "rfq_manager", "Dispatched RFQs across supplier channels")
+
+    _collect_quotes(order, material_code, region, quantity)
+
+    # Stage 3 — decide (deterministic math, LLM explanation).
+    rank_bids(order)
+    choose_lowest_bid(order)
+    draft_contract(order)
+    _audit(order, "bid_comparison", "Ranked quotes by landed total")
+    _audit(order, "awarding", "Recommended lowest compliant bid")
+    order.intake.budget_remaining = round(
+        _PROJECT_BUDGET - _as_float(order.bidding.recommended_bid.get("total", 0.0)), 2
+    )
+    order.bidding.comparison_matrix["explanation"] = explain_recommendation(llm, order)
+    order.contract.terms = write_contract_cover(llm, order)
+
+    # Stage 4 — approval gate (deterministic).
+    _finalize_approval(order)
+
+    return order
+
+
+def run_pipeline(
+    *,
+    raw_input: str,
+    material_code: str,
+    quantity: float,
+    region: str,
+    tenant_id: str = "demo",
+) -> ProcurementOrder:
+    """Mode-aware entrypoint.
+
+    ``LLM_MODE=demo`` (default) runs the deterministic, credential-free pipeline.
+    ``azure`` / ``llama`` run the real LLM-backed pipeline against the configured
+    provider.
+    """
+
+    settings = get_llm_settings()
+    if settings.llm_mode == "demo":
+        return run_demo_pipeline(
+            raw_input=raw_input,
+            material_code=material_code,
+            quantity=quantity,
+            region=region,
+            tenant_id=tenant_id,
+        )
+
+    llm = get_llm_client(settings)
+    if llm is None:  # defensive: treat misconfiguration as demo
+        return run_demo_pipeline(
+            raw_input=raw_input,
+            material_code=material_code,
+            quantity=quantity,
+            region=region,
+            tenant_id=tenant_id,
+        )
+
+    return run_llm_pipeline(
+        llm=llm,
+        raw_input=raw_input,
+        material_code=material_code,
+        quantity=quantity,
+        region=region,
+        tenant_id=tenant_id,
+    )

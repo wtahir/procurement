@@ -59,6 +59,36 @@ uvicorn apps.api.main:app --reload
 - API docs: http://localhost:8000/docs
 - Health: GET /health/live
 
+## Execution Modes (demo / azure / llama)
+
+A single `LLM_MODE` selector in `.env` controls how the whole pipeline runs.
+Copy `.env.example` to `.env` and pick a mode:
+
+| Mode    | What runs                                         | Credentials | Extra deps              |
+| ------- | ------------------------------------------------- | ----------- | ----------------------- |
+| `demo`  | Deterministic, hardcoded pipeline (default)       | None        | None                    |
+| `azure` | Real Azure OpenAI at the LLM edges                | Azure key   | `requirements-llm.txt`  |
+| `llama` | Local OpenAI-compatible server (Ollama/llama.cpp) | None        | `requirements-llm.txt`  |
+
+The deterministic math (pricing, ranking, budget, approval routing) is identical
+across all modes — only request parsing and explanatory prose come from the
+model (see ADR 0003). The hosted Render demo always runs `demo` mode.
+
+```bash
+# real LLM modes only:
+pip install -r requirements-llm.txt
+
+# azure
+LLM_MODE=azure  # + AZURE_OPENAI_* values in .env
+
+# local llama via Ollama
+ollama serve && ollama pull llama3.1
+LLM_MODE=llama  # uses LLAMA_BASE_URL / LLAMA_MODEL in .env
+```
+
+The active mode is reported at `GET /health/ready` so you can confirm which
+backend a running instance is using.
+
 ## Dashboard (Professional Demo UI)
 
 The built-in UI is designed for stakeholder walkthroughs, not just developer

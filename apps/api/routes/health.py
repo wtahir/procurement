@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from packages.llm.config import get_llm_settings
+
 router = APIRouter()
 
 
@@ -10,4 +12,4 @@ async def live() -> dict[str, str]:
 
 @router.get("/ready")
 async def ready() -> dict[str, str]:
-    return {"status": "ready"}
+    return {"status": "ready", "llm_mode": get_llm_settings().llm_mode}

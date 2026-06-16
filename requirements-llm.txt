@@ -1,0 +1,5 @@
+# Optional dependencies for the real LLM-backed pipeline (azure / llama modes).
+# The default demo mode does NOT need these — install only when running with
+# LLM_MODE=azure or LLM_MODE=llama:
+#   pip install -r requirements-llm.txt
+openai>=1.40,<2.0

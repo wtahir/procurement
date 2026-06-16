@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi import APIRouter
 
 from apps.suppliers.common.pricing import quote_price
-from apps.suppliers.rest_metrosteel.schema import RFQRequest, RFQResponse
+from apps.suppliers.rest_harboursteelworks.schema import RFQRequest, RFQResponse
 
 router = APIRouter()
 

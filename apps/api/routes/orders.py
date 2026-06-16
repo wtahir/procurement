@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 from apps.api.errors import ProcuraError
 from apps.api.store import get_order, list_orders, save_order
-from packages.agents.pipeline import order_summary, run_demo_pipeline
+from packages.agents.pipeline import order_summary, run_pipeline
 from packages.core.models.order import ProcurementOrder
 
 router = APIRouter()
@@ -18,7 +18,7 @@ class CreateOrderRequest(BaseModel):
 
 @router.post("")
 async def create_order(payload: CreateOrderRequest) -> ProcurementOrder:
-    order = run_demo_pipeline(
+    order = run_pipeline(
         raw_input=payload.raw_input,
         material_code=payload.material_code,
         quantity=payload.quantity,
