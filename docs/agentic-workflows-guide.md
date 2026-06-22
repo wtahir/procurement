@@ -405,9 +405,11 @@ diff is the single most instructive thing in this repo.
 These mirror the repo's [ADRs](decisions/):
 
 1. **LangGraph over CrewAI** ([0001](decisions/0001-langgraph-over-crewai.md)) —
-   explicit graphs/state over opaque agent autonomy. *Procura currently wires the
-   stages directly in `pipeline.py`; `graph.py` is the seam where a LangGraph
-   `StateGraph` would slot in.*
+   explicit graphs/state over opaque agent autonomy. Procura implements this in
+   [packages/agents/graph.py](../packages/agents/graph.py): a real `StateGraph`
+   with conditional edges, SQLite checkpointing, and `interrupt()` for the human
+   approval gate. `pipeline.py` remains the mode-aware dispatcher; the graph
+   wraps the same agent functions without changing them.
 2. **pgvector over ChromaDB** ([0002](decisions/0002-pgvector-over-chromadb.md)) —
    keep retrieval in the same Postgres you already operate.
 3. **LLM only at the edges** ([0003](decisions/0003-llm-only-at-the-edges.md)) —
@@ -416,11 +418,12 @@ These mirror the repo's [ADRs](decisions/):
    isolate vendor formats.
 
 > **What's real vs. stubbed (be honest in interviews):** the intake → source →
-> decide → approve flow runs end-to-end with real state, audit, and approval
-> routing. The `fulfil` sub-stages, voice intake, streaming, LangGraph wiring,
-> and five of six supplier services are intentional stubs marked
-> `"...lands here in the next phase."` Knowing the boundary of your own system is
-> a senior trait.
+> decide → approve → fulfil flow runs end-to-end with real state, audit, approval
+> routing, checkpointing, and human-in-the-loop interrupt/resume. The `fulfil`
+> sub-stages (delivery tracking, invoice matching, payment), voice intake,
+> streaming, and five of six supplier services are intentional stubs marked for
+> the next implementation phase. Knowing the boundary of your own system is a
+> senior trait.
 
 ---
 
@@ -460,8 +463,8 @@ mega-agent is neither.
 ## 13. Exercises to cement mastery
 
 1. **Add a node.** Implement `intake/scheduling.py` to set
-   `intake.required_delivery_window`, wire it into both pipelines, and add an
-   audit entry. Confirm tests still pass.
+   `intake.required_delivery_window`, wire it into both pipelines and the graph,
+   and add an audit entry. Confirm tests still pass.
 2. **Add a deterministic guardrail.** Use `detect_price_outlier`
    ([pricing_tools.py](../packages/tools/pricing_tools.py)) in `rank_bids` to
    flag suspicious quote spreads in `comparison_matrix`.
@@ -470,16 +473,114 @@ mega-agent is neither.
    that's the payoff of the Strategy pattern.
 4. **Persist state.** Replace the in-memory dict in `store.py` with SQLite and
    prove an order survives a server restart.
-5. **Wire the real graph.** Turn `graph.py`'s placeholder into an actual
-   `StateGraph` whose nodes are the existing functions. The functions don't
-   change — only the orchestration does.
+5. **Swap SQLite for Postgres checkpointing.** In `graph.py` replace
+   `SqliteSaver` with `PostgresSaver`, start Postgres with Docker, and run an
+   order. Kill the server mid-run at `AWAITING_HUMAN`. Restart and resume it
+   with `Command(resume='approve')`. This proves crash-safe resumability on
+   real infrastructure.
+6. **Trigger the infeasibility branch.** Pass `quantity=0.001` or a nonsense
+   material. Add a check in `node_intake` that sets `feasibility_score=0.0`
+   when `material_code` isn't in `_BASE_PRICES`. Watch `_route_after_intake`
+   send the order to `node_reject` immediately.
+7. **Expose the graph via the API.** Add a `POST /orders/graph` route in
+   `apps/api/routes/orders.py` that calls `run_graph` instead of
+   `run_pipeline`. The response should include `interrupted: true` when the
+   order needs human approval, and a `PUT /orders/{id}/approve` endpoint that
+   calls `run_graph(app, order_id=id, human_decision=decision)` to resume.
 
 ---
 
-## 14. File map (quick reference)
+## 14. The LangGraph graph — what was added and how to use it
+
+[packages/agents/graph.py](../packages/agents/graph.py) implements the real
+`StateGraph` that ADR 0001 called for. It wraps the **same agent functions** from
+`pipeline.py` as LangGraph nodes — nothing in the agent files changed.
+
+### What the graph adds over `pipeline.py`
+
+| | `pipeline.py` | `graph.py` |
+|---|---|---|
+| Execution | Sequential function calls | Explicit node graph with conditional edges |
+| Checkpointing | None (in-memory only) | SQLite/Postgres after every node |
+| Crash recovery | Restart from scratch | Resume from last checkpoint |
+| Human-in-the-loop | `AWAITING_HUMAN` flag only | Real `interrupt()` + `Command(resume=)` |
+| Auditability | `audit_log` in the order | `audit_log` + LangGraph checkpoint stream |
+| Graph introspection | None | `app.get_graph().draw_mermaid()` |
+
+### Graph topology
+
+```
+START
+  └─► intake ──[feasibility < 0.3]──► reject ──► END
+          │
+          └─[feasibility OK]──► source ──► decide ──► approve
+                                                         ├─[auto / human approved]──► fulfil ──► END
+                                                         └─[rejected]──────────────► reject ──► END
+```
+
+### Running it (zero credentials)
+
+```python
+from langgraph.checkpoint.sqlite import SqliteSaver
+from packages.agents.graph import build_graph, run_graph
+
+with SqliteSaver.from_conn_string("procura.sqlite") as cp:
+    app = build_graph(checkpointer=cp)
+
+    # Low-value: auto-approves and completes in one call
+    order, interrupted = run_graph(
+        app,
+        raw_input="50 bags cement in Sydney",
+        material_code="cement_bag",
+        quantity=50,
+        region="sydney",
+        order_id="PO-2026-001",
+    )
+    # interrupted == False, order.pipeline_control.status == "completed"
+
+    # High-value: pauses at director approval gate
+    order, interrupted = run_graph(
+        app,
+        raw_input="500 tons rebar steel in Sydney",
+        material_code="rebar_steel",
+        quantity=500,
+        region="sydney",
+        order_id="PO-2026-002",
+    )
+    # interrupted == True, order.pipeline_control.status == "awaiting_human"
+
+    # Resume after human approves (can be days later, different process)
+    order, _ = run_graph(app, order_id="PO-2026-002", human_decision="approve")
+    # order.pipeline_control.status == "completed"
+```
+
+### Key patterns to understand in `graph.py`
+
+**`interrupt()` and `Command(resume=)`** — read `node_approve` carefully.
+The line `decision = interrupt({...})` does not block. It raises a signal that
+LangGraph catches, serialises the full `GraphState` to the checkpointer, and
+returns from `app.invoke()` with `__interrupt__` in the result. The next call
+with `Command(resume=decision)` loads the checkpoint and execution literally
+continues on the line *after* `interrupt()`. `decision` is whatever value you
+passed to `Command(resume=...)`.
+
+**`GraphState` wrapper with reducer** — `ProcurementOrder` is nested inside a
+`TypedDict`. The `node_log` field uses `Annotated[list[str], operator.add]` as a
+reducer so LangGraph *appends* each node's log entry instead of overwriting the
+list on every merge.
+
+**Conditional edges** — `_route_after_intake` and `_route_after_approve` are
+pure functions. They read state and return a node name. LangGraph calls them
+after the source node completes to decide which edge to follow. No business
+logic lives here — only routing.
+
+---
+
+## 15. File map (quick reference)
 
 | Concern | File |
 | --- | --- |
+| **LangGraph graph (StateGraph + HITL)** | [packages/agents/graph.py](../packages/agents/graph.py) |
 | Mode selector / settings | [packages/llm/config.py](../packages/llm/config.py) |
 | Provider clients (Azure/Llama) | [packages/llm/client.py](../packages/llm/client.py) |
 | LLM edge nodes | [packages/agents/llm_nodes.py](../packages/agents/llm_nodes.py) |
@@ -497,5 +598,7 @@ mega-agent is neither.
 ---
 
 *Read the code with this guide open. The moment you can run the same request in
-`demo` and `llama` mode and articulate exactly which lines diverge, you
-understand agentic workflow systems better than most candidates in the room.*
+`demo` and `llama` mode and articulate exactly which lines diverge — and then
+run the same order through the LangGraph path and explain why `interrupt()` is
+not a `sleep()` — you understand agentic workflow systems better than most
+candidates in the room.*
